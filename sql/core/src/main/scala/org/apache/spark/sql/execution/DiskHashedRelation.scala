@@ -51,13 +51,12 @@ private[sql] sealed trait DiskHashedRelation {
 protected [sql] final class GeneralDiskHashedRelation(partitions: Array[DiskPartition])
   extends DiskHashedRelation with Serializable {
 
-  override def getIterator() = {
-    /* IMPLEMENT THIS METHOD */
-    null
+  override def getIterator(): Iterator[DiskPartition] = {
+    return partitions.iterator
   }
 
   override def closeAllPartitions() = {
-    /* IMPLEMENT THIS METHOD */
+    getIterator().foreach((partition: DiskPartition) => partition.closePartition())
   }
 }
 
@@ -180,7 +179,9 @@ private[sql] class DiskPartition (
     */
 
   def closeInput() = {
-    spillPartitionToDisk()
+    if(data.size() > 0) {
+      spillPartitionToDisk()
+    }
     data.clear()
     outStream.close()
     inputClosed = true
@@ -218,8 +219,23 @@ private[sql] object DiskHashedRelation {
               input: Iterator[Row],
               keyGenerator: Projection,
               size: Int = 64,
-              blockSize: Int = 64000) = {
-    /* IMPLEMENT THIS METHOD */
-    null
+              blockSize: Int = 64000): DiskHashedRelation = {
+
+    val partitions: Array[DiskPartition] = new Array[DiskPartition](size)
+    for( a <- 0 to size-1){
+      val partition: DiskPartition = new DiskPartition("partition" + a, blockSize)
+      partitions(a) = partition
+    }
+
+    input.foreach((row: Row) => {
+      val hashCode: Int = keyGenerator.apply(row).hashCode()
+      val partitionIndex: Int = hashCode % size
+      partitions(partitionIndex).insert(row) 
+      
+    }) 
+
+    partitions.foreach((partition: DiskPartition) => partition.closeInput())
+    
+    return new GeneralDiskHashedRelation(partitions)
   }
 }
