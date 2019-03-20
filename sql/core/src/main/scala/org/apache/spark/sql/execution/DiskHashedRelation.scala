@@ -79,7 +79,18 @@ private[sql] class DiskPartition (
     * @param row the [[Row]] we are adding
     */
   def insert(row: Row) = {
-    /* IMPLEMENT THIS METHOD */
+
+    if (inputClosed) {
+      throw new SparkException("File must be open prior to insertion.")
+    }
+
+    data.add(row)
+
+    if(measurePartitionSize() > blockSize) {
+        spillPartitionToDisk()
+        data.clear()
+    }
+
   }
 
   /**
@@ -90,6 +101,7 @@ private[sql] class DiskPartition (
     */
   private[this] def measurePartitionSize(): Int = {
     CS143Utils.getBytesFromList(data).size
+
   }
 
   /**
@@ -121,14 +133,19 @@ private[sql] class DiskPartition (
       val chunkSizeIterator: Iterator[Int] = chunkSizes.iterator().asScala
       var byteArray: Array[Byte] = null
 
-      override def next() = {
-        /* IMPLEMENT THIS METHOD */
-        null
+      override def next(): Row = {
+        if (!currentIterator.hasNext) {
+          fetchNextChunk()
+        }
+        return currentIterator.next()
       }
 
-      override def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
+      override def hasNext(): Boolean = {
+        if(currentIterator.hasNext) {
+          return true
+        }
+
+        return chunkSizeIterator.hasNext
       }
 
       /**
@@ -138,8 +155,18 @@ private[sql] class DiskPartition (
         * @return true unless the iterator is empty.
         */
       private[this] def fetchNextChunk(): Boolean = {
-        /* IMPLEMENT THIS METHOD */
-        false
+        if(!chunkSizeIterator.hasNext) {
+          return false
+        }
+        
+        var chunkSize: Int  = chunkSizeIterator.next()
+        byteArray = CS143Utils.getNextChunkBytes(inStream, chunkSize, byteArray)        
+        var rowList: JavaArrayList[Row] = CS143Utils.getListFromBytes(byteArray)
+        data.clear()
+        data.addAll(rowList)
+        currentIterator = data.iterator.asScala
+
+        true
       }
     }
   }
@@ -151,8 +178,11 @@ private[sql] class DiskPartition (
     * If any data has not been written to disk yet, it should be written. The output stream should
     * also be closed.
     */
+
   def closeInput() = {
-    /* IMPLEMENT THIS METHOD */
+    spillPartitionToDisk()
+    data.clear()
+    outStream.close()
     inputClosed = true
   }
 

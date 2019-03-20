@@ -20,6 +20,8 @@ package org.apache.spark.sql.execution
 import org.apache.spark.SparkException
 import org.apache.spark.sql.catalyst.expressions.Row
 import org.scalatest.FunSuite
+import scala.io.Source
+
 
 class DiskPartitionSuite extends FunSuite {
 
@@ -37,6 +39,7 @@ class DiskPartitionSuite extends FunSuite {
     (1 to 500).foreach((x: Int) => assert(data.contains(Row(x))))
   }
 
+
   test ("close input") {
     val partition: DiskPartition = new DiskPartition("close input test", 1)
 
@@ -50,4 +53,15 @@ class DiskPartitionSuite extends FunSuite {
       partition.insert(Row(1))
     }
   }
+
+  test ("close input spills") {
+    val partition: DiskPartition = new DiskPartition("close input test", 2000)
+
+    partition.insert(Row(1))
+
+    partition.closeInput()
+    partition.getData.toArray.contains(Row(1))
+
+  }
+
 }
