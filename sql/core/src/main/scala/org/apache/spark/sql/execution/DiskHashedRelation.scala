@@ -83,12 +83,14 @@ private[sql] class DiskPartition (
       throw new SparkException("File must be open prior to insertion.")
     }
 
-    data.add(row)
+    val sum: Int = measurePartitionSize() + row.size
 
-    if(measurePartitionSize() > blockSize) {
+    if(sum  > blockSize) {
         spillPartitionToDisk()
-        data.clear()
+        data.clear()        
     }
+
+    data.add(row)
 
   }
 

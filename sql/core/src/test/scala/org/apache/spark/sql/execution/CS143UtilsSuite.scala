@@ -35,10 +35,10 @@ class CS143UtilsSuite extends FunSuite {
   /* NOTE: This test is not a guarantee that your caching iterator is completely correct.
      However, if your caching iterator is correct, then you should be passing this test. */
   test("caching iterator") {
-    val list: ArraySeq[Row] = new ArraySeq[Row](1000)
+    val list: ArraySeq[Row] = new ArraySeq[Row](100)
 
-    for (i <- 0 to 999) {
-      list(i) = (Row(numberGenerator.nextInt(10000), numberGenerator.nextFloat()))
+    for (i <- 0 to 99) {
+      list(i) = (Row(numberGenerator.nextInt(1000), numberGenerator.nextFloat()))
     }
 
 
@@ -60,4 +60,27 @@ class CS143UtilsSuite extends FunSuite {
 
     assert(CS143Utils.getUdfFromExpressions(attributes) == udf)
   }
+
+
+  test("empty UDF sequence") {
+    val attributes: Seq[Expression] = Seq()
+    assert(CS143Utils.getUdfFromExpressions(attributes) == null)
+  }
+
+  test("sequence containing a non-UDF expression after a UDF") {
+    val udf: ScalaUdf = new ScalaUdf((i: Int) => i + 1, IntegerType, Seq(studentAttributes(0)))
+    val attributes: Seq[Expression] = Seq() ++ Seq(udf) ++ studentAttributes
+
+    assert(CS143Utils.getUdfFromExpressions(attributes) == udf)
+  }
+
+
+  test("sequence with all non-UDF Expressions") {
+    val attributes: Seq[Expression] = Seq() ++ studentAttributes
+
+    assert(CS143Utils.getUdfFromExpressions(attributes) == null)
+  }
+
 }
+
+
