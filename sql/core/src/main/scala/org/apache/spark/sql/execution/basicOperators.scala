@@ -30,6 +30,7 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.physical.{ClusteredDistribution, OrderedDistribution, SinglePartition, UnspecifiedDistribution}
 import org.apache.spark.util.MutablePair
 import org.apache.spark.util.collection.ExternalSorter
+import org.apache.spark.SparkException
 
 /**
   * :: DeveloperApi ::
@@ -98,18 +99,31 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
     // This is the key generator for the course-grained external hashing.
     val keyGenerator = CS143Utils.getNewProjection(projectList, child.output)
 
-    /* IMPLEMENT THIS METHOD */
+    val dhr: DiskHashedRelation = DiskHashedRelation.apply(input, keyGenerator, 4, 4000)
+    val dhrPartitionIter = dhr.getIterator()
+    var currPartition: DiskPartition = null
+    var currPartitionIter: Iterator[Row] = null
+
 
     new Iterator[Row] {
-      def hasNext(): Boolean = {
-        if(input.hasNext) {
-          return true
+      def hasNext(): Boolean = {   
+        if(currPartitionIter != null) {
+          if(currPartitionIter.hasNext) {
+            return true
+          }
         }
-        return false
+        if (!fetchNextPartition()) {
+          return false
+        }
+
+        return hasNext
       }
 
-      def next() = {
-        null
+      def next(): Row = {
+        if(hasNext) {
+          return currPartitionIter.next()
+        }
+        throw new SparkException("There is no next row.")
       }
 
       /**
@@ -119,7 +133,16 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
         * @return
         */
       private def fetchNextPartition(): Boolean  = {
-          return false
+       if(currPartition != null){
+         currPartition.closePartition()
+       } 
+       if(!dhrPartitionIter.hasNext) {
+           return false
+        }
+
+        currPartition = dhrPartitionIter.next()
+        currPartitionIter = currPartition.getData()
+        return true
       }
     }
   }
