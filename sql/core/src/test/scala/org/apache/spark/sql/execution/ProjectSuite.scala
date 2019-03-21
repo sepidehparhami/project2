@@ -43,20 +43,15 @@ class ProjectSuite extends FunSuite {
   val smallScan: SparkPlan = PhysicalRDD(recordAttributes, smallRDD)
 
   // initialize a SparkPlan that is a sequential scan over a large amount of data
-  // val largeRDD = sparkContext.parallelize((1 to 10000).map(i => Record(i)), 1)
-  // val largeScan: SparkPlan = PhysicalRDD(recordAttributes, largeRDD)
+  val largeRDD = sparkContext.parallelize((1 to 10000).map(i => Record(i)), 1)
+  val largeScan: SparkPlan = PhysicalRDD(recordAttributes, largeRDD)
 
   // TESTS FOR TASK #4
   // functionality test for the PartitionProject Operator
   test("PartitionProject") {
-    println("yay")
-    val outputRDD = PartitionProject(Seq(udf), smallScan).execute()
-    println("yayy")
+    val outputRDD = PartitionProject(Seq(udf), largeScan).execute()
     var seenValues: HashSet[Row] = new HashSet[Row]()
-    println("yayyy")
     outputRDD.collect().foreach(x => seenValues = seenValues + x)
-    println("yayyyy")
     (2 to 11).foreach(x => assert(seenValues.contains(Row(x))))
-    println("yayyyyy")
   }
 }

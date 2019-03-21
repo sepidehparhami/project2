@@ -99,7 +99,7 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
     // This is the key generator for the course-grained external hashing.
     val keyGenerator = CS143Utils.getNewProjection(projectList, child.output)
 
-    val dhr: DiskHashedRelation = DiskHashedRelation.apply(input, keyGenerator, 4, 4000)
+    val dhr: DiskHashedRelation = DiskHashedRelation.apply(input, keyGenerator)
     val dhrPartitionIter = dhr.getIterator()
     var currPartition: DiskPartition = null
     var currPartitionIter: Iterator[Row] = null
@@ -121,7 +121,7 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
 
       def next(): Row = {
         if(hasNext) {
-          return currPartitionIter.next()
+          return keyGenerator.apply(currPartitionIter.next())
         }
         throw new SparkException("There is no next row.")
       }
